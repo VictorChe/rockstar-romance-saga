@@ -1,0 +1,10 @@
+# Lovable Cloud / Supabase: Edge Functions
+# Документация: https://docs.lovable.dev/features/cloud
+
+[api]
+enabled = true
+
+[functions]
+# Публичный вызов без JWT (фронт вызывает без авторизации)
+[functions.suno-generate]
+verify_jwt = false

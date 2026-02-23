@@ -1,11 +1,48 @@
 /**
  * Suno API — генерация трека по названию, жанру, теме и тексту песни.
- * Ключ хранится в .env как VITE_SUNO_API_KEY (не коммитить .env).
+ * 1) Lovable Cloud (платно): ключ в Secrets, вызов через Edge Function.
+ * 2) Бесплатно: прокси на Vercel — ключ в Vercel Env, фронт вызывает VITE_SUNO_PROXY_URL.
+ * 3) Локально: ключ в .env как VITE_SUNO_API_KEY (не коммитить .env).
  */
 
 const SUNO_BASE = 'https://api.sunoapi.org';
 const POLL_INTERVAL_MS = 5000;
-const POLL_MAX_ATTEMPTS = 60; // ~5 min
+const POLL_MAX_ATTEMPTS = 60;
+
+/** Вызов Edge Function Lovable Cloud (ключ не попадает в браузер) */
+async function generateViaEdgeFunction(params: SunoGenerateParams): Promise<SunoGenerateResult | SunoError | null> {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+
+  const res = await fetch(`${url}/functions/v1/suno-generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (data.tracks) return { taskId: data.taskId, tracks: data.tracks };
+  return { code: data.code ?? 500, msg: data.msg ?? 'Ошибка Suno' };
+}
+
+/** Вызов прокси (Vercel: тот же домен /api/suno-generate; или VITE_SUNO_PROXY_URL для кастомного URL) */
+async function generateViaProxy(params: SunoGenerateParams): Promise<SunoGenerateResult | SunoError | null> {
+  const envUrl = import.meta.env.VITE_SUNO_PROXY_URL;
+  const base = envUrl ? envUrl.replace(/\/$/, '') : (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : null);
+  if (!base) return null;
+  const url = `${base}/api/suno-generate`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (data.tracks) return { taskId: data.taskId, tracks: data.tracks };
+  return { code: data.code ?? 500, msg: data.msg ?? 'Ошибка Suno' };
+}
 
 function getApiKey(): string {
   const key = import.meta.env.VITE_SUNO_API_KEY;
@@ -123,6 +160,11 @@ export async function getSunoTaskStatus(taskId: string): Promise<
 
 /** Запустить генерацию и дождаться готовых треков (опрос статуса) */
 export async function generateSunoTrack(params: SunoGenerateParams): Promise<SunoGenerateResult | SunoError> {
+  const viaEdge = await generateViaEdgeFunction(params);
+  if (viaEdge != null) return viaEdge;
+  const viaProxy = await generateViaProxy(params);
+  if (viaProxy != null) return viaProxy;
+
   const start = await startSunoGenerate(params);
   if ('code' in start) return start;
   const { taskId } = start;
