@@ -2,17 +2,19 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { Character, ConcertResult } from './types';
 import { Venue } from './types';
 import { drawPixelCharacter, drawCrowdPerson } from './pixelArt';
+import { startConcertMusic, stopConcertMusic } from './concertMusic';
 
 interface ConcertSceneProps {
   members: Character[];
   venue: Venue;
   result: ConcertResult;
+  genre?: string;
   onFinish: () => void;
 }
 
 const PIXEL = 4;
 
-const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, onFinish }) => {
+const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, genre = 'rock', onFinish }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrame = useRef<number>(0);
   const startTime = useRef(Date.now());
@@ -227,6 +229,9 @@ const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, onF
     ctx.imageSmoothingEnabled = false;
     draw(ctx);
 
+    // Start music
+    startConcertMusic(genre as any, result.crowdMood);
+
     // Cycle events
     const eventTimer = setInterval(() => {
       setEventIndex(prev => (prev + 1) % Math.max(1, result.events.length));
@@ -235,6 +240,7 @@ const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, onF
     return () => {
       cancelAnimationFrame(animFrame.current);
       clearInterval(eventTimer);
+      stopConcertMusic();
     };
   }, []);
 

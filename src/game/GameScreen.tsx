@@ -366,6 +366,7 @@ const GameScreen: React.FC = () => {
               members={state.members}
               venue={concertVenue}
               result={concertResult}
+              genre={state.songs.length > 0 ? state.songs[state.songs.length - 1].genre : 'rock'}
               onFinish={() => {
                 setScreen('concert-result');
               }}
