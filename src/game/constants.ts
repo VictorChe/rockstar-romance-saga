@@ -42,14 +42,14 @@ export const EQUIPMENT_CATALOG: Equipment[] = [
 
 // === VENUES ===
 export const VENUES: Venue[] = [
-  { id: 'garage', name: 'Гараж друга', capacity: 20, minFame: 0, payPerHead: 5, description: 'Тесно, но душевно', type: 'bar' },
-  { id: 'bar', name: 'Бар "Подвал"', capacity: 50, minFame: 10, payPerHead: 8, description: 'Пивной дым и рок', type: 'bar' },
-  { id: 'pub', name: 'Паб "Три Аккорда"', capacity: 100, minFame: 30, payPerHead: 12, description: 'Живая музыка каждый вечер', type: 'bar' },
-  { id: 'club-small', name: 'Клуб "Гром"', capacity: 250, minFame: 80, payPerHead: 15, description: 'Настоящая рок-площадка', type: 'club' },
-  { id: 'club-big', name: 'Клуб "Вольт"', capacity: 500, minFame: 150, payPerHead: 20, description: 'Два этажа рока', type: 'club' },
-  { id: 'theater', name: 'Концертный зал', capacity: 1500, minFame: 300, payPerHead: 30, description: 'Акустика мечты', type: 'theater' },
-  { id: 'arena', name: 'Арена "Рок-Купол"', capacity: 5000, minFame: 500, payPerHead: 45, description: 'Свет, звук, масштаб', type: 'arena' },
-  { id: 'stadium', name: 'Стадион "Олимп"', capacity: 30000, minFame: 800, payPerHead: 60, description: 'Вершина рока!', type: 'stadium' },
+  { id: 'garage', name: 'Гараж друга', capacity: 20, minFame: 0, payPerHead: 8, description: 'Тесно, но душевно', type: 'bar' },
+  { id: 'bar', name: 'Бар "Подвал"', capacity: 50, minFame: 5, payPerHead: 10, description: 'Пивной дым и рок', type: 'bar' },
+  { id: 'pub', name: 'Паб "Три Аккорда"', capacity: 100, minFame: 20, payPerHead: 14, description: 'Живая музыка каждый вечер', type: 'bar' },
+  { id: 'club-small', name: 'Клуб "Гром"', capacity: 250, minFame: 60, payPerHead: 18, description: 'Настоящая рок-площадка', type: 'club' },
+  { id: 'club-big', name: 'Клуб "Вольт"', capacity: 500, minFame: 120, payPerHead: 24, description: 'Два этажа рока', type: 'club' },
+  { id: 'theater', name: 'Концертный зал', capacity: 1500, minFame: 250, payPerHead: 35, description: 'Акустика мечты', type: 'theater' },
+  { id: 'arena', name: 'Арена "Рок-Купол"', capacity: 5000, minFame: 450, payPerHead: 50, description: 'Свет, звук, масштаб', type: 'arena' },
+  { id: 'stadium', name: 'Стадион "Олимп"', capacity: 30000, minFame: 750, payPerHead: 65, description: 'Вершина рока!', type: 'stadium' },
 ];
 
 // === HIRE POOL ===
@@ -82,22 +82,22 @@ export const SONG_THEMES: { value: SongTheme; label: string; emoji: string }[] =
 ];
 
 // === BALANCE CONSTANTS ===
-export const INITIAL_MONEY = 500;
-export const REHEARSAL_COST = 50;
-export const REHEARSAL_SKILL_GAIN = 2; // per member
-export const RECORDING_COST_PER_SONG = 300;
-export const ALBUM_RECORDING_BONUS = 1.2; // quality multiplier for albums
+export const INITIAL_MONEY = 800;
+export const REHEARSAL_COST = 30;
+export const REHEARSAL_SKILL_GAIN = 3; // per member
+export const RECORDING_COST_PER_SONG = 200;
+export const ALBUM_RECORDING_BONUS = 1.25; // quality multiplier for albums
 
-export const FAME_FROM_CONCERT_BASE = 5;
-export const FAME_FROM_ALBUM = 20;
-export const FANS_PER_FAME = 50;
+export const FAME_FROM_CONCERT_BASE = 8;
+export const FAME_FROM_ALBUM = 30;
+export const FANS_PER_FAME = 40;
 
 export const SONG_QUALITY_FORMULA = {
-  skillWeight: 0.4,
+  skillWeight: 0.35,
   creativityWeight: 0.35,
-  equipmentWeight: 0.25,
+  equipmentWeight: 0.3,
 };
 
 export const WEEKLY_EXPENSES = {
-  baseCost: 100, // rent etc
+  baseCost: 60, // rent etc
 };
