@@ -34,28 +34,142 @@ const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, gen
     const t = Date.now() - startTime.current;
     const progress = Math.min(1, t / 15000); // 15 sec concert
 
-    // Background - dark venue
-    const venueScale = venue.type === 'stadium' ? 1 : venue.type === 'arena' ? 0.8 : venue.type === 'theater' ? 0.6 : 0.4;
-    ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-    // Stars / ceiling lights
-    if (venue.type === 'stadium' || venue.type === 'arena') {
-      for (let i = 0; i < 30; i++) {
-        const sx = (i * 137 + 50) % WIDTH;
-        const sy = (i * 89 + 10) % 80;
-        ctx.fillStyle = `rgba(255,255,200,${0.3 + Math.sin(t / 500 + i) * 0.3})`;
-        ctx.fillRect(sx, sy, 2, 2);
-      }
-    }
-
-    // Stage floor
+    // Background - venue-specific
     const stageY = HEIGHT * 0.35;
     const stageH = HEIGHT * 0.15;
-    ctx.fillStyle = '#2a1a0a';
-    ctx.fillRect(0, stageY, WIDTH, stageH);
-    ctx.fillStyle = '#3a2a1a';
-    ctx.fillRect(0, stageY, WIDTH, 4);
+
+    if (venue.type === 'bar') {
+      // Dark brick wall background
+      ctx.fillStyle = '#1a0e08';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Brick pattern
+      for (let by = 0; by < stageY; by += 12) {
+        for (let bx = 0; bx < WIDTH; bx += 28) {
+          const offset = (Math.floor(by / 12) % 2) * 14;
+          ctx.fillStyle = `hsl(15, 40%, ${8 + ((bx + by) * 7) % 4}%)`;
+          ctx.fillRect(bx + offset, by, 26, 10);
+        }
+      }
+      // Warm lamp glow
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      const lampGrad = ctx.createRadialGradient(WIDTH / 2, stageY * 0.3, 10, WIDTH / 2, stageY * 0.3, 200);
+      lampGrad.addColorStop(0, '#ffaa44');
+      lampGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = lampGrad;
+      ctx.fillRect(0, 0, WIDTH, stageY);
+      ctx.restore();
+      // Wooden stage
+      ctx.fillStyle = '#3d2510';
+      ctx.fillRect(0, stageY, WIDTH, stageH);
+      ctx.fillStyle = '#4a2e15';
+      ctx.fillRect(0, stageY, WIDTH, 4);
+      // Wood grain lines
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(0, stageY + 4 + i * (stageH / 6), WIDTH, 1);
+      }
+    } else if (venue.type === 'club') {
+      // Neon-tinted dark club
+      ctx.fillStyle = '#0a0515';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Neon accent strips on walls
+      const neonHue = (t / 30) % 360;
+      ctx.save();
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle = `hsl(${neonHue}, 100%, 50%)`;
+      ctx.fillRect(0, 0, 4, stageY);
+      ctx.fillRect(WIDTH - 4, 0, 4, stageY);
+      ctx.fillRect(0, 10, WIDTH, 3);
+      ctx.restore();
+      // Dark metallic stage
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(0, stageY, WIDTH, stageH);
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(0, stageY, WIDTH, 4);
+    } else if (venue.type === 'theater') {
+      // Elegant dark red / curtain feel
+      ctx.fillStyle = '#12080a';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Side curtains
+      ctx.fillStyle = '#3a0a0a';
+      ctx.fillRect(0, 0, 40, stageY + stageH);
+      ctx.fillRect(WIDTH - 40, 0, 40, stageY + stageH);
+      // Curtain folds
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = `rgba(80,10,10,${0.3 + i * 0.1})`;
+        ctx.fillRect(i * 10, 0, 4, stageY + stageH);
+        ctx.fillRect(WIDTH - i * 10 - 4, 0, 4, stageY + stageH);
+      }
+      // Top valance
+      ctx.fillStyle = '#4a1010';
+      ctx.fillRect(0, 0, WIDTH, 18);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(0, 16, WIDTH, 2);
+      // Polished stage
+      ctx.fillStyle = '#2a1808';
+      ctx.fillRect(40, stageY, WIDTH - 80, stageH);
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(40, stageY, WIDTH - 80, 4);
+    } else if (venue.type === 'arena') {
+      // Large dark arena with structural beams
+      ctx.fillStyle = '#08081a';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Ceiling structure
+      ctx.fillStyle = '#151530';
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(i * (WIDTH / 4) - 2, 0, 4, stageY * 0.5);
+      }
+      ctx.fillRect(0, 0, WIDTH, 6);
+      // Ceiling lights
+      for (let i = 0; i < 20; i++) {
+        const sx = (i * 137 + 50) % WIDTH;
+        const sy = (i * 89 + 10) % 50;
+        ctx.fillStyle = `rgba(200,200,255,${0.3 + Math.sin(t / 500 + i) * 0.3})`;
+        ctx.fillRect(sx, sy, 3, 3);
+      }
+      // Wide stage with LED edge
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, stageY, WIDTH, stageH);
+      const edgeHue = (t / 20) % 360;
+      ctx.fillStyle = `hsl(${edgeHue}, 80%, 40%)`;
+      ctx.fillRect(0, stageY, WIDTH, 3);
+    } else {
+      // Stadium - open air, night sky
+      // Gradient sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, stageY * 0.6);
+      skyGrad.addColorStop(0, '#020118');
+      skyGrad.addColorStop(1, '#0a0a2a');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Stars
+      for (let i = 0; i < 40; i++) {
+        const sx = (i * 137 + 50) % WIDTH;
+        const sy = (i * 89 + 5) % (stageY * 0.4);
+        const twinkle = 0.3 + Math.sin(t / 600 + i * 1.7) * 0.4;
+        ctx.fillStyle = `rgba(255,255,230,${twinkle})`;
+        const sz = (i % 3 === 0) ? 3 : 2;
+        ctx.fillRect(sx, sy, sz, sz);
+      }
+      // Stadium structure silhouette
+      ctx.fillStyle = '#111122';
+      ctx.fillRect(0, stageY * 0.4, WIDTH, stageY * 0.6);
+      // Giant screens on sides
+      ctx.fillStyle = '#0a0a20';
+      ctx.fillRect(20, stageY * 0.45, 80, 50);
+      ctx.fillRect(WIDTH - 100, stageY * 0.45, 80, 50);
+      ctx.fillStyle = `hsl(${(t / 15) % 360}, 60%, 30%)`;
+      ctx.fillRect(22, stageY * 0.45 + 2, 76, 46);
+      ctx.fillRect(WIDTH - 98, stageY * 0.45 + 2, 76, 46);
+      // Massive stage
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, stageY, WIDTH, stageH);
+      // LED strip
+      for (let i = 0; i < WIDTH; i += 8) {
+        ctx.fillStyle = `hsl(${(t / 10 + i) % 360}, 90%, 50%)`;
+        ctx.fillRect(i, stageY, 6, 3);
+      }
+    }
 
     // Stage lights
     const lightCount = venue.type === 'bar' ? 2 : venue.type === 'club' ? 4 : venue.type === 'theater' ? 6 : 8;
