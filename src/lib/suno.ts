@@ -79,12 +79,20 @@ export interface SunoError {
   msg: string;
 }
 
+/** Промпт для Suno: при пустых lyrics — описание по стилю/теме/названию для автогенерации текста */
+function buildSunoPrompt(params: SunoGenerateParams): string {
+  const title = params.title.slice(0, 80);
+  const style = `${params.genre}, ${params.theme}`.slice(0, 200);
+  if (params.lyrics?.trim()) return params.lyrics.slice(0, 5000);
+  return `Song titled "${title}", style: ${params.genre}, theme: ${params.theme}. Generate appropriate lyrics.`.slice(0, 5000);
+}
+
 /** Запуск генерации трека в Suno */
 export async function startSunoGenerate(params: SunoGenerateParams): Promise<{ taskId: string } | SunoError> {
   const apiKey = getApiKey();
   const style = `${params.genre}, ${params.theme}`.slice(0, 200);
   const title = params.title.slice(0, 80);
-  const prompt = params.lyrics.slice(0, 5000);
+  const prompt = buildSunoPrompt(params);
 
   const res = await fetch(`${SUNO_BASE}/api/v1/generate`, {
     method: 'POST',

@@ -34,13 +34,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     theme?: string;
     lyrics?: string;
   };
-  if (!title?.trim() || !lyrics?.trim()) {
-    return res.status(400).json({ code: 400, msg: 'Нужны title и lyrics' });
+  if (!title?.trim()) {
+    return res.status(400).json({ code: 400, msg: 'Нужен title' });
   }
 
   const style = `${genre || ''}, ${theme || ''}`.trim().slice(0, 200) || 'rock';
   const titleClean = String(title).slice(0, 80);
-  const prompt = String(lyrics).slice(0, 5000);
+  const prompt = (lyrics?.trim())
+    ? String(lyrics).slice(0, 5000)
+    : `Song titled "${titleClean}", style: ${genre || 'rock'}, theme: ${theme || ''}. Generate appropriate lyrics.`.slice(0, 5000);
 
   try {
     const startRes = await fetch(`${SUNO_BASE}/api/v1/generate`, {

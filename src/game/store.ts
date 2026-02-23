@@ -1,4 +1,4 @@
-import { GameState, GameScreen, Character, Song, Equipment, ConcertResult, MusicGenre, SongTheme, Album, CrewMember, GigFormatId } from './types';
+import { GameState, GameScreen, Character, Song, Equipment, ConcertResult, MusicGenre, SongTheme, Album, CrewMember, GigFormatId, SunoTrackStored } from './types';
 import {
   INITIAL_MONEY, REHEARSAL_COST, REHEARSAL_SKILL_GAIN, RECORDING_COST_PER_SONG,
   FAME_FROM_CONCERT_BASE, SONG_QUALITY_FORMULA, VENUES, EQUIPMENT_CATALOG, MUSICIAN_NAMES,
@@ -6,7 +6,7 @@ import {
   GIG_FORMATS, MIN_FAME_HEADLINE, CREW_NAMES, FRIEND_SHARE_PERCENT,
   STREET_GIG_BASE, STREET_GIG_FAME_FACTOR, RADIO_PAY_BASE, RADIO_FAME_FACTOR, RADIO_FAME_GAIN,
   INTERVIEW_PAY_BASE, INTERVIEW_FAME_GAIN, MANAGER_PAY_MULTIPLIER, MANAGER_FAME_MULTIPLIER,
-  SOUND_ENGINEER_MOOD_BONUS,
+  SOUND_ENGINEER_MOOD_BONUS, SUNO_QUALITY_BONUS,
 } from './constants';
 
 const SAVE_KEY = 'rock-tycoon-save';
@@ -31,6 +31,8 @@ export function saveGame() {
   if (state) localStorage.setItem(SAVE_KEY, JSON.stringify(state));
 }
 
+const MAX_SUNO_TRACKS_STORED = 20;
+
 function migrateState(s: GameState): GameState {
   const crew = s.crew ?? [];
   const members = (s.members ?? []).map(m => ({
@@ -38,7 +40,8 @@ function migrateState(s: GameState): GameState {
     role: m.role ?? 'musician' as const,
     contract: m.contract ?? 'pro' as const,
   }));
-  return { ...s, crew, members };
+  const sunoTracks = s.sunoTracks ?? [];
+  return { ...s, crew, members, sunoTracks };
 }
 
 export function loadGame(): boolean {
@@ -87,6 +90,7 @@ export function startNewGame(playerName: string, bandName: string, playerInstrum
     week: 1,
     equipment: EQUIPMENT_CATALOG.filter(e => e.price === 0).map(e => ({ ...e })),
     songs: [], albums: [],
+    sunoTracks: [],
     concertHistory: [],
     hasWon: false,
     screen: 'hq',
@@ -249,6 +253,30 @@ export function writeSong(name: string, genre: MusicGenre, theme: SongTheme): st
   saveGame();
   notify();
   return `Песня "${name}" написана! Качество: ${song.quality}`;
+}
+
+export function increaseSongQuality(songId: string, delta: number): void {
+  if (!state) return;
+  const songs = state.songs.map(s =>
+    s.id === songId ? { ...s, quality: Math.min(100, s.quality + delta) } : s
+  );
+  state = { ...state, songs };
+  saveGame();
+  notify();
+}
+
+export function addSunoTracks(tracks: SunoTrackStored[]): void {
+  if (!state) return;
+  const newTracks = tracks.map(t => ({
+    id: t.id,
+    audioUrl: t.audioUrl,
+    streamAudioUrl: t.streamAudioUrl,
+    title: t.title,
+  }));
+  const combined = [...state.sunoTracks, ...newTracks].slice(-MAX_SUNO_TRACKS_STORED);
+  state = { ...state, sunoTracks: combined };
+  saveGame();
+  notify();
 }
 
 // === RECORDING (no negative money) ===
@@ -440,6 +468,7 @@ export function performStreetGig(): string {
 
 export function doRadioShow(): string {
   if (!state) return '';
+  if (!state.crew.some(c => c.role === 'manager')) return 'Нужен менеджер в команде.';
   const pay = RADIO_PAY_BASE + Math.floor((state.fame / 10) * RADIO_FAME_FACTOR);
   state.money += pay;
   state.fame = Math.min(1000, state.fame + RADIO_FAME_GAIN);
@@ -452,6 +481,7 @@ export function doRadioShow(): string {
 
 export function doInterview(): string {
   if (!state) return '';
+  if (!state.crew.some(c => c.role === 'manager')) return 'Нужен менеджер в команде.';
   state.money += INTERVIEW_PAY_BASE;
   state.fame = Math.min(1000, state.fame + INTERVIEW_FAME_GAIN);
   processWeekEnd(0);

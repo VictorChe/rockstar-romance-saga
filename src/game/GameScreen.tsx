@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGameState } from './useGameState';
-import { setScreen, rehearse, advanceWeek, generateHirePool, generateFriendPool, hireMember, fireMember, hireCrew, fireCrew, generateCrewPool, writeSong, recordSong, releaseAlbum, buyEquipment, playConcert, getCanPlayFormat, getVenueRequirementError, performStreetGig, doRadioShow, doInterview } from './store';
+import { setScreen, rehearse, advanceWeek, generateHirePool, generateFriendPool, hireMember, fireMember, hireCrew, fireCrew, generateCrewPool, writeSong, increaseSongQuality, addSunoTracks, recordSong, releaseAlbum, buyEquipment, playConcert, getCanPlayFormat, getVenueRequirementError, performStreetGig, doRadioShow, doInterview } from './store';
 import { CharacterCard } from './PixelAvatar';
-import { EQUIPMENT_CATALOG, GENRES, SONG_THEMES, VENUES, GIG_FORMATS } from './constants';
+import { EQUIPMENT_CATALOG, GENRES, SONG_THEMES, VENUES, GIG_FORMATS, getEquipmentForLabel, SUNO_QUALITY_BONUS } from './constants';
 import ConcertScene from './ConcertScene';
 import { ConcertResult, Character, CrewMember } from './types';
 import { generateSunoTrack, SunoTrack } from '@/lib/suno';
@@ -53,6 +53,13 @@ const GameScreen: React.FC = () => {
   const [sunoLoading, setSunoLoading] = useState(false);
   const [sunoResult, setSunoResult] = useState<SunoTrack[] | null>(null);
   const [sunoError, setSunoError] = useState<string | null>(null);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const playbackRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => () => {
+    playbackRef.current?.pause();
+    playbackRef.current = null;
+  }, []);
   const [albumName, setAlbumName] = useState('');
   const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
   const [concertResult, setConcertResult] = useState<ConcertResult | null>(null);
@@ -238,6 +245,7 @@ const GameScreen: React.FC = () => {
                       <span className="font-mono font-bold text-card-foreground">{eq.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">{eq.description}</span>
                       <div className="text-xs text-muted-foreground font-mono">Качество: {eq.quality}</div>
+                      <div className="text-xs text-primary/80 font-mono mt-0.5">Для: {getEquipmentForLabel(eq)}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-green-500">${eq.price}</span>
@@ -318,8 +326,8 @@ const GameScreen: React.FC = () => {
               </button>
               <button
                 onClick={async () => {
-                  if (!songName.trim() || !songLyrics.trim()) {
-                    showMsg('Для Suno нужны название и текст песни');
+                  if (!songName.trim()) {
+                    showMsg('Для Suno нужно название песни');
                     return;
                   }
                   setSunoError(null);
@@ -336,7 +344,10 @@ const GameScreen: React.FC = () => {
                     });
                     if ('tracks' in result) {
                       setSunoResult(result.tracks);
-                      showMsg(`Сгенерировано треков: ${result.tracks.length}`);
+                      addSunoTracks(result.tracks.map(t => ({ id: t.id, audioUrl: t.audioUrl, streamAudioUrl: t.streamAudioUrl, title: t.title })));
+                      const song = state.songs.find(s => s.name === songName.trim() && s.genre === songGenre && s.theme === songTheme);
+                      if (song) increaseSongQuality(song.id, SUNO_QUALITY_BONUS);
+                      showMsg(`Сгенерировано треков: ${result.tracks.length}. Качество песни +${SUNO_QUALITY_BONUS}`);
                     } else {
                       setSunoError(result.msg ?? 'Ошибка Suno');
                       showMsg(result.msg ?? 'Ошибка Suno');
@@ -349,7 +360,7 @@ const GameScreen: React.FC = () => {
                     setSunoLoading(false);
                   }
                 }}
-                disabled={sunoLoading || !songName.trim() || !songLyrics.trim()}
+                disabled={sunoLoading || !songName.trim() || !state.songs.some(s => s.name === songName.trim() && s.genre === songGenre && s.theme === songTheme)}
                 className="px-6 py-3 bg-amber-600 text-white rounded font-mono font-bold hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 {sunoLoading ? '⏳ Генерация в Suno...' : '🎵 Сгенерировать трек в Suno'}
               </button>
@@ -362,18 +373,46 @@ const GameScreen: React.FC = () => {
             {sunoResult && sunoResult.length > 0 && (
               <div className="border border-border rounded-lg p-4 space-y-2">
                 <h3 className="font-mono font-bold text-foreground">🎧 Треки Suno</h3>
-                {sunoResult.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 p-2 bg-card rounded">
-                    {t.imageUrl && <img src={t.imageUrl} alt="" className="w-12 h-12 rounded object-cover" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-mono font-medium text-card-foreground truncate">{t.title}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{t.tags} · {Math.round(t.duration)}s</p>
+                {sunoResult.map((t) => {
+                  const isPlaying = playingTrackId === t.id;
+                  return (
+                    <div key={t.id} className={`flex items-center gap-3 p-2 rounded ${isPlaying ? 'bg-primary/20 border border-primary' : 'bg-card'}`}>
+                      {t.imageUrl && <img src={t.imageUrl} alt="" className="w-12 h-12 rounded object-cover" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono font-medium text-card-foreground truncate">{t.title}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{t.tags} · {Math.round(t.duration)}s</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isPlaying) {
+                            playbackRef.current?.pause();
+                            playbackRef.current = null;
+                            setPlayingTrackId(null);
+                          } else {
+                            playbackRef.current?.pause();
+                            const audio = new Audio(t.audioUrl || t.streamAudioUrl);
+                            playbackRef.current = audio;
+                            setPlayingTrackId(t.id);
+                            audio.play().catch(() => setPlayingTrackId(null));
+                            audio.onended = () => {
+                              if (playbackRef.current === audio) {
+                                playbackRef.current = null;
+                                setPlayingTrackId(null);
+                              }
+                            };
+                          }
+                        }}
+                        className="px-3 py-1 bg-amber-600 text-white rounded text-sm font-mono whitespace-nowrap hover:bg-amber-700"
+                      >
+                        {isPlaying ? '⏸ Пауза' : '▶ Слушать'}
+                      </button>
+                      <a href={t.audioUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-mono whitespace-nowrap">
+                        Скачать
+                      </a>
                     </div>
-                    <a href={t.audioUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-mono whitespace-nowrap">
-                      Скачать
-                    </a>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -463,11 +502,15 @@ const GameScreen: React.FC = () => {
                 🎸 Улица
               </button>
               <button onClick={() => showMsg(doRadioShow())}
-                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80">
+                disabled={!state.crew.some(c => c.role === 'manager')}
+                title={state.crew.some(c => c.role === 'manager') ? undefined : 'Доступно при наличии менеджера'}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed">
                 📻 Радио
               </button>
               <button onClick={() => showMsg(doInterview())}
-                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80">
+                disabled={!state.crew.some(c => c.role === 'manager')}
+                title={state.crew.some(c => c.role === 'manager') ? undefined : 'Доступно при наличии менеджера'}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed">
                 🎙️ Интервью
               </button>
             </div>
@@ -520,12 +563,17 @@ const GameScreen: React.FC = () => {
 
       case 'concert':
         if (concertResult && concertVenue) {
+          const sunoTracks = state.sunoTracks ?? [];
+          const sunoTrackUrl = sunoTracks.length > 0
+            ? sunoTracks[Math.floor(Math.random() * sunoTracks.length)].audioUrl
+            : null;
           return (
             <ConcertScene
               members={state.members}
               venue={concertVenue}
               result={concertResult}
               genre={state.songs.length > 0 ? state.songs[state.songs.length - 1].genre : 'rock'}
+              sunoTrackUrl={sunoTrackUrl}
               onFinish={() => {
                 setScreen('concert-result');
               }}

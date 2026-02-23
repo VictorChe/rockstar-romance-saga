@@ -9,12 +9,14 @@ interface ConcertSceneProps {
   venue: Venue;
   result: ConcertResult;
   genre?: string;
+  /** Если задан — во время выступления играет этот трек вместо процедурной музыки */
+  sunoTrackUrl?: string | null;
   onFinish: () => void;
 }
 
 const PIXEL = 4;
 
-const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, genre = 'rock', onFinish }) => {
+const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, genre = 'rock', sunoTrackUrl = null, onFinish }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrame = useRef<number>(0);
   const startTime = useRef(Date.now());
@@ -343,8 +345,13 @@ const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, gen
     ctx.imageSmoothingEnabled = false;
     draw(ctx);
 
-    // Start music
-    startConcertMusic(genre as any, result.crowdMood);
+    let concertAudio: HTMLAudioElement | null = null;
+    if (sunoTrackUrl) {
+      concertAudio = new Audio(sunoTrackUrl);
+      concertAudio.play().catch(() => {});
+    } else {
+      startConcertMusic(genre as any, result.crowdMood);
+    }
 
     // Cycle events
     const eventTimer = setInterval(() => {
@@ -354,9 +361,13 @@ const ConcertScene: React.FC<ConcertSceneProps> = ({ members, venue, result, gen
     return () => {
       cancelAnimationFrame(animFrame.current);
       clearInterval(eventTimer);
+      if (concertAudio) {
+        concertAudio.pause();
+        concertAudio = null;
+      }
       stopConcertMusic();
     };
-  }, []);
+  }, [genre, result.crowdMood, result.events.length, sunoTrackUrl]);
 
   return (
     <div className="flex flex-col items-center gap-4">

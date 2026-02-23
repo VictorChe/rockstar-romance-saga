@@ -28,11 +28,16 @@ export interface Character {
   contract?: ContractType;
 }
 
+/** Роль команды, для которой предназначен товар (менеджер, звуковик, техник). */
+export type EquipmentCrewRole = 'manager' | 'sound_engineer' | 'tech';
+
 export interface Equipment {
   id: string;
   name: string;
-  type: 'instrument' | 'amp' | 'mic' | 'drums' | 'keys' | 'pa' | 'lights';
+  type: 'instrument' | 'amp' | 'mic' | 'drums' | 'keys' | 'pa' | 'lights' | 'manager_gear' | 'sound_gear' | 'tech_gear';
   forInstrument?: InstrumentType;
+  /** Для кого: музыкант (указывается forInstrument) или член команды (forCrewRole). */
+  forCrewRole?: EquipmentCrewRole;
   quality: number; // 1-100
   price: number;
   description: string;
@@ -102,6 +107,14 @@ export interface CrewMember {
   salary: number;
 }
 
+/** Минимальные данные сгенерированного Suno-трека для воспроизведения на концерте */
+export interface SunoTrackStored {
+  id: string;
+  audioUrl: string;
+  streamAudioUrl?: string;
+  title: string;
+}
+
 export interface GameState {
   playerName: string;
   bandName: string;
@@ -114,6 +127,8 @@ export interface GameState {
   equipment: Equipment[];
   songs: Song[];
   albums: Album[];
+  /** Сохранённые треки Suno для воспроизведения на выступлениях */
+  sunoTracks: SunoTrackStored[];
   concertHistory: ConcertResult[];
   hasWon: boolean;
   screen: GameScreen;

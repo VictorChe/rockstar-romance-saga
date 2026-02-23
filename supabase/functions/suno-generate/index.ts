@@ -42,16 +42,18 @@ Deno.serve(async (req) => {
     }
 
     const { title, genre, theme, lyrics } = (await req.json()) as SunoParams;
-    if (!title?.trim() || !lyrics?.trim()) {
+    if (!title?.trim()) {
       return new Response(
-        JSON.stringify({ code: 400, msg: 'Нужны title и lyrics' }),
+        JSON.stringify({ code: 400, msg: 'Нужен title' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const style = `${genre || ''}, ${theme || ''}`.trim().slice(0, 200) || 'rock';
     const titleClean = String(title).slice(0, 80);
-    const prompt = String(lyrics).slice(0, 5000);
+    const prompt = (lyrics?.trim())
+      ? String(lyrics).slice(0, 5000)
+      : `Song titled "${titleClean}", style: ${genre || 'rock'}, theme: ${theme || ''}. Generate appropriate lyrics.`.slice(0, 5000);
 
     const startRes = await fetch(`${SUNO_BASE}/api/v1/generate`, {
       method: 'POST',
