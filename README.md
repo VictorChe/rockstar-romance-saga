@@ -32,7 +32,9 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: (Опционально) Для генерации треков в Suno скопируйте .env.example в .env и укажите свой API-ключ (https://sunoapi.org/api-key). Файл .env не публикуется в репозитории.
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
