@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useGameState } from './useGameState';
-import { setScreen, rehearse, advanceWeek, generateHirePool, hireMember, fireMember, writeSong, recordSong, releaseAlbum, buyEquipment, playConcert, getAvailableVenues } from './store';
+import { setScreen, rehearse, advanceWeek, generateHirePool, generateFriendPool, hireMember, fireMember, hireCrew, fireCrew, generateCrewPool, writeSong, recordSong, releaseAlbum, buyEquipment, playConcert, getCanPlayFormat, getVenueRequirementError, performStreetGig, doRadioShow, doInterview } from './store';
 import { CharacterCard } from './PixelAvatar';
-import { EQUIPMENT_CATALOG, GENRES, SONG_THEMES, VENUES } from './constants';
+import { EQUIPMENT_CATALOG, GENRES, SONG_THEMES, VENUES, GIG_FORMATS } from './constants';
 import ConcertScene from './ConcertScene';
-import { ConcertResult, Character } from './types';
+import { ConcertResult, Character, CrewMember } from './types';
+import { generateSunoTrack, SunoTrack } from '@/lib/suno';
 
 // === GAME HUD ===
 const GameHUD: React.FC = () => {
@@ -48,10 +49,17 @@ const GameScreen: React.FC = () => {
   const [songName, setSongName] = useState('');
   const [songGenre, setSongGenre] = useState(GENRES[0].value);
   const [songTheme, setSongTheme] = useState(SONG_THEMES[0].value);
+  const [songLyrics, setSongLyrics] = useState('');
+  const [sunoLoading, setSunoLoading] = useState(false);
+  const [sunoResult, setSunoResult] = useState<SunoTrack[] | null>(null);
+  const [sunoError, setSunoError] = useState<string | null>(null);
   const [albumName, setAlbumName] = useState('');
   const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
   const [concertResult, setConcertResult] = useState<ConcertResult | null>(null);
   const [concertVenue, setConcertVenue] = useState<typeof VENUES[0] | null>(null);
+  const [friendPool, setFriendPool] = useState<Character[]>([]);
+  const [crewPool, setCrewPool] = useState<CrewMember[]>([]);
+  const [selectedCrewRole, setSelectedCrewRole] = useState<CrewMember['role'] | null>(null);
 
   if (!state) return null;
 
@@ -125,37 +133,94 @@ const GameScreen: React.FC = () => {
             <h2 className="text-2xl font-mono font-bold text-foreground">👥 Состав группы</h2>
             <div className="grid gap-3">
               {state.members.map(m => (
-                <CharacterCard key={m.id} character={m} actions={
-                  !m.isPlayer && (
-                    <button onClick={() => { fireMember(m.id); showMsg(`${m.name} уволен`); }}
-                      className="px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded font-mono">
-                      Уволить
-                    </button>
-                  )
-                } />
+                <div key={m.id} className="flex items-center justify-between gap-2">
+                  <CharacterCard character={m} actions={null} />
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {(m.contract === 'friend') && <span className="text-xs text-amber-600 font-mono">Доля с концерта</span>}
+                    {!m.isPlayer && (
+                      <button onClick={() => { fireMember(m.id); showMsg(`${m.name} уволен`); }}
+                        className="px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded font-mono">
+                        Уволить
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
+            {(state.crew?.length ?? 0) > 0 && (
+              <div className="border-t border-border pt-4">
+                <h3 className="font-mono font-bold text-foreground mb-2">Команда</h3>
+                <div className="space-y-2">
+                  {state.crew.map(c => (
+                    <div key={c.id} className="flex items-center justify-between p-2 bg-card border border-border rounded font-mono text-sm">
+                      <span className="text-card-foreground">{c.name}</span>
+                      <span className="text-muted-foreground">{c.role === 'manager' ? 'Менеджер' : c.role === 'sound_engineer' ? 'Звуковик' : 'Техник'}</span>
+                      <span className="text-green-500">${c.salary}/нед</span>
+                      <button onClick={() => { fireCrew(c.id); showMsg(`${c.name} уволен`); }}
+                        className="px-2 py-1 text-xs bg-destructive text-destructive-foreground rounded">Уволить</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="border-t border-border pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-mono font-bold text-foreground">Нанять музыканта</h3>
-                <button onClick={() => setHirePool(generateHirePool())}
+              <h3 className="font-mono font-bold text-foreground mb-3">Нанять музыканта</h3>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button onClick={() => { setHirePool(generateHirePool()); setFriendPool([]); }}
                   className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded font-mono">
-                  🔄 Обновить список
+                  🔄 Профи (зарплата)
+                </button>
+                <button onClick={() => { setFriendPool(generateFriendPool()); setHirePool([]); }}
+                  className="px-3 py-1 text-sm bg-amber-600 text-white rounded font-mono">
+                  👋 Друг (доля с концерта)
                 </button>
               </div>
-              {hirePool.length === 0 && (
-                <p className="text-sm text-muted-foreground font-mono">Нажмите "Обновить список"</p>
+              {hirePool.length > 0 && (
+                <div className="grid gap-3">
+                  {hirePool.map(m => (
+                    <CharacterCard key={m.id} character={m} actions={
+                      <button onClick={() => { hireMember(m); setHirePool(p => p.filter(x => x.id !== m.id)); showMsg(`${m.name} нанят!`); }}
+                        className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded font-mono">
+                        Нанять (${m.salary}/нед)
+                      </button>
+                    } />
+                  ))}
+                </div>
               )}
-              <div className="grid gap-3">
-                {hirePool.map(m => (
-                  <CharacterCard key={m.id} character={m} actions={
-                    <button onClick={() => { hireMember(m); setHirePool(p => p.filter(x => x.id !== m.id)); showMsg(`${m.name} нанят!`); }}
-                      className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded font-mono">
-                      Нанять (${m.salary}/нед)
-                    </button>
-                  } />
+              {friendPool.length > 0 && (
+                <div className="grid gap-3">
+                  {friendPool.map(m => (
+                    <CharacterCard key={m.id} character={m} actions={
+                      <button onClick={() => { hireMember(m); setFriendPool(p => p.filter(x => x.id !== m.id)); showMsg(`${m.name} присоединился!`); }}
+                        className="px-3 py-1 text-xs bg-amber-600 text-white rounded font-mono">
+                        Позвать (доля с концерта)
+                      </button>
+                    } />
+                  ))}
+                </div>
+              )}
+              {hirePool.length === 0 && friendPool.length === 0 && (
+                <p className="text-sm text-muted-foreground font-mono">Выберите «Профи» или «Друг»</p>
+              )}
+            </div>
+            <div className="border-t border-border pt-4">
+              <h3 className="font-mono font-bold text-foreground mb-2">Нанять в команду</h3>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {(['manager', 'sound_engineer', 'tech'] as const).map(role => (
+                  <button key={role} onClick={() => { setSelectedCrewRole(role); setCrewPool(generateCrewPool(role)); }}
+                    className={`px-3 py-1 text-sm rounded font-mono ${selectedCrewRole === role ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    {role === 'manager' ? 'Менеджер' : role === 'sound_engineer' ? 'Звуковик' : 'Техник'}
+                  </button>
                 ))}
               </div>
+              {crewPool.map(c => (
+                <div key={c.id} className="flex items-center justify-between p-2 bg-card border border-border rounded font-mono text-sm mb-2">
+                  <span>{c.name}</span>
+                  <span className="text-green-500">${c.salary}/нед</span>
+                  <button onClick={() => { showMsg(hireCrew(c)); setCrewPool(p => p.filter(x => x.id !== c.id)); }}
+                    className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded">Нанять</button>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -238,11 +303,79 @@ const GameScreen: React.FC = () => {
                 ))}
               </div>
             </div>
-            <button onClick={() => { if (songName.trim()) { showMsg(writeSong(songName.trim(), songGenre, songTheme)); setSongName(''); } }}
-              disabled={!songName.trim()}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded font-mono font-bold hover:opacity-90 disabled:opacity-50">
-              ✍️ Написать песню
-            </button>
+            <div>
+              <label className="text-sm font-mono text-muted-foreground">Текст песни (для Suno)</label>
+              <textarea value={songLyrics} onChange={e => setSongLyrics(e.target.value)}
+                className="w-full min-h-[120px] px-3 py-2 mt-1 bg-card border border-border rounded font-mono text-foreground text-sm resize-y"
+                placeholder="[Verse] Строки куплета...&#10;[Chorus] Припев..."
+                maxLength={5000} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => { if (songName.trim()) { showMsg(writeSong(songName.trim(), songGenre, songTheme)); setSongName(''); } }}
+                disabled={!songName.trim()}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded font-mono font-bold hover:opacity-90 disabled:opacity-50">
+                ✍️ Написать песню
+              </button>
+              <button
+                onClick={async () => {
+                  if (!songName.trim() || !songLyrics.trim()) {
+                    showMsg('Для Suno нужны название и текст песни');
+                    return;
+                  }
+                  setSunoError(null);
+                  setSunoResult(null);
+                  setSunoLoading(true);
+                  try {
+                    const genreLabel = GENRES.find(g => g.value === songGenre)?.label ?? songGenre;
+                    const themeLabel = SONG_THEMES.find(t => t.value === songTheme)?.label ?? songTheme;
+                    const result = await generateSunoTrack({
+                      title: songName.trim(),
+                      genre: genreLabel,
+                      theme: themeLabel,
+                      lyrics: songLyrics.trim(),
+                    });
+                    if ('tracks' in result) {
+                      setSunoResult(result.tracks);
+                      showMsg(`Сгенерировано треков: ${result.tracks.length}`);
+                    } else {
+                      setSunoError(result.msg ?? 'Ошибка Suno');
+                      showMsg(result.msg ?? 'Ошибка Suno');
+                    }
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : 'Ошибка сети';
+                    setSunoError(msg);
+                    showMsg(msg);
+                  } finally {
+                    setSunoLoading(false);
+                  }
+                }}
+                disabled={sunoLoading || !songName.trim() || !songLyrics.trim()}
+                className="px-6 py-3 bg-amber-600 text-white rounded font-mono font-bold hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                {sunoLoading ? '⏳ Генерация в Suno...' : '🎵 Сгенерировать трек в Suno'}
+              </button>
+            </div>
+            {sunoError && (
+              <div className="p-3 bg-destructive/20 border border-destructive rounded font-mono text-sm text-destructive">
+                {sunoError}
+              </div>
+            )}
+            {sunoResult && sunoResult.length > 0 && (
+              <div className="border border-border rounded-lg p-4 space-y-2">
+                <h3 className="font-mono font-bold text-foreground">🎧 Треки Suno</h3>
+                {sunoResult.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 p-2 bg-card rounded">
+                    {t.imageUrl && <img src={t.imageUrl} alt="" className="w-12 h-12 rounded object-cover" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono font-medium text-card-foreground truncate">{t.title}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{t.tags} · {Math.round(t.duration)}s</p>
+                    </div>
+                    <a href={t.audioUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-mono whitespace-nowrap">
+                      Скачать
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {state.songs.length > 0 && (
               <div className="border-t border-border pt-4">
@@ -321,36 +454,62 @@ const GameScreen: React.FC = () => {
         return (
           <div className="space-y-4">
             <h2 className="text-2xl font-mono font-bold text-foreground">🎤 Забронировать концерт</h2>
+            <div className="p-3 bg-muted/50 border border-border rounded-lg font-mono text-sm text-muted-foreground mb-4">
+              Улица, радио, интервью: небольшой доход и слава без площадки.
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button onClick={() => showMsg(performStreetGig())}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80">
+                🎸 Улица
+              </button>
+              <button onClick={() => showMsg(doRadioShow())}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80">
+                📻 Радио
+              </button>
+              <button onClick={() => showMsg(doInterview())}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded font-mono text-sm hover:bg-muted/80">
+                🎙️ Интервью
+              </button>
+            </div>
+            <h3 className="font-mono font-bold text-foreground">Площадки</h3>
             <div className="grid gap-3">
               {VENUES.map(v => {
-                const available = state.fame >= v.minFame;
+                const reqErr = getVenueRequirementError(v.id);
+                const fameOk = state.fame >= v.minFame;
                 return (
-                  <div key={v.id} className={`p-4 border rounded-lg font-mono ${available ? 'bg-card border-border' : 'bg-muted/50 border-border/50 opacity-60'}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-card-foreground">{v.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{v.description}</span>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          👥 {v.capacity} мест • 💰 ${v.payPerHead}/чел • ⭐ {v.minFame} славы
-                        </div>
+                  <div key={v.id} className={`p-4 border rounded-lg font-mono ${fameOk && !reqErr ? 'bg-card border-border' : 'bg-muted/50 border-border/50 opacity-80'}`}>
+                    <div>
+                      <span className="font-bold text-card-foreground">{v.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{v.description}</span>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        👥 {v.capacity} мест • 💰 ${v.payPerHead}/чел • ⭐ {v.minFame} славы
                       </div>
-                      {available ? (
-                        <button onClick={() => {
-                          const result = playConcert(v.id);
-                          if (typeof result === 'string') {
-                            showMsg(result);
-                          } else {
-                            setConcertResult(result);
-                            setConcertVenue(v);
-                            setScreen('concert');
-                          }
-                        }}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm">
-                          Играть! 🎸
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">🔒 Нужно {v.minFame} славы</span>
-                      )}
+                      {reqErr && <div className="text-xs text-amber-600 mt-1">⚠️ {reqErr}</div>}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {GIG_FORMATS.map(fmt => {
+                        const can = getCanPlayFormat(v.id, fmt.id);
+                        return (
+                          <button
+                            key={fmt.id}
+                            disabled={!can.ok}
+                            onClick={() => {
+                              const result = playConcert(v.id, fmt.id);
+                              if (typeof result === 'string') {
+                                showMsg(result);
+                              } else {
+                                setConcertResult(result);
+                                setConcertVenue(v);
+                                setScreen('concert');
+                              }
+                            }}
+                            title={can.ok ? undefined : can.msg}
+                            className={`px-3 py-1.5 rounded text-xs font-mono ${can.ok ? 'bg-primary text-primary-foreground hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                          >
+                            {fmt.name} (мин. {fmt.minSongs} песен)
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

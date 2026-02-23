@@ -11,14 +11,21 @@ export interface CharacterStats {
   stamina: number;     // 1-100
 }
 
+export type CrewRole = 'musician' | 'manager' | 'sound_engineer' | 'tech';
+export type ContractType = 'pro' | 'friend'; // pro = salary, friend = share of gig
+
 export interface Character {
   id: string;
   name: string;
   instrument: InstrumentType;
   stats: CharacterStats;
-  avatarSeed: number; // for pixel art generation
-  salary: number; // weekly cost
+  avatarSeed: number;
+  salary: number;
   isPlayer: boolean;
+  /** musician | manager | sound_engineer | tech; default musician */
+  role?: CrewRole;
+  /** pro = salary per week, friend = no salary, share of concert; default pro */
+  contract?: ContractType;
 }
 
 export interface Equipment {
@@ -58,23 +65,50 @@ export interface Venue {
   payPerHead: number;
   description: string;
   type: 'bar' | 'club' | 'theater' | 'arena' | 'stadium';
+  /** Required equipment ids (e.g. pa-mid). Without these, cannot play. */
+  requiredEquipmentIds?: string[];
+  /** If true, need at least one sound_engineer or tech in crew. */
+  requiresSoundEngineer?: boolean;
+}
+
+/** Gig format: same venue can be played as slot / headline / support / solo. */
+export type GigFormatId = 'festival_slot' | 'headline' | 'support_act' | 'solo_show';
+
+export interface GigFormat {
+  id: GigFormatId;
+  name: string;
+  minSongs: number;
+  /** Only for headline: min fame required. */
+  minFame?: number;
+  payMultiplier: number;
+  fameMultiplier: number;
 }
 
 export interface ConcertResult {
   venueId: string;
+  gigFormatId?: GigFormatId;
   attendance: number;
   earnings: number;
   fameGained: number;
-  crowdMood: number; // 0-100
-  events: string[]; // special events during concert
+  crowdMood: number;
+  events: string[];
+}
+
+/** Crew member (non-musician): manager, sound_engineer, tech. */
+export interface CrewMember {
+  id: string;
+  name: string;
+  role: 'manager' | 'sound_engineer' | 'tech';
+  salary: number;
 }
 
 export interface GameState {
   playerName: string;
   bandName: string;
   members: Character[];
+  crew: CrewMember[];
   money: number;
-  fame: number; // 0-1000
+  fame: number;
   fans: number;
   week: number;
   equipment: Equipment[];

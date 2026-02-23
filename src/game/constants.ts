@@ -1,4 +1,4 @@
-import { Equipment, Venue, MusicGenre, SongTheme } from './types';
+import { Equipment, Venue, MusicGenre, SongTheme, GigFormat } from './types';
 
 // === EQUIPMENT CATALOG ===
 export const EQUIPMENT_CATALOG: Equipment[] = [
@@ -38,18 +38,31 @@ export const EQUIPMENT_CATALOG: Equipment[] = [
   { id: 'lights-mid', name: 'LED Par Set', type: 'lights', quality: 40, price: 800, description: 'Цветные пятна' },
   { id: 'lights-pro', name: 'Pro Light Show', type: 'lights', quality: 80, price: 5000, description: 'Лазеры и стробоскопы' },
   { id: 'lights-elite', name: 'Stadium Rig', type: 'lights', quality: 100, price: 15000, description: 'Как у Pink Floyd' },
+  // Amps
+  { id: 'amp-basic', name: 'Усилитель 15W', type: 'amp', forInstrument: 'guitar', quality: 20, price: 150, description: 'Для репетиций' },
+  { id: 'amp-mid', name: 'Marshall 50W', type: 'amp', forInstrument: 'guitar', quality: 55, price: 1200, description: 'Классический рок' },
+  { id: 'amp-pro', name: 'Mesa Boogie', type: 'amp', forInstrument: 'guitar', quality: 85, price: 3500, description: 'Студийный уровень' },
 ];
+
+// === GIG FORMATS (any venue can be played in any format) ===
+export const GIG_FORMATS: GigFormat[] = [
+  { id: 'festival_slot', name: 'Слот на фестивале', minSongs: 2, payMultiplier: 0.4, fameMultiplier: 0.5 },
+  { id: 'headline', name: 'Хедлайнер', minSongs: 3, minFame: 100, payMultiplier: 1.0, fameMultiplier: 1.0 },
+  { id: 'support_act', name: 'Разогрев', minSongs: 5, payMultiplier: 0.7, fameMultiplier: 0.6 },
+  { id: 'solo_show', name: 'Сольный концерт', minSongs: 10, payMultiplier: 1.5, fameMultiplier: 1.3 },
+];
+export const MIN_FAME_HEADLINE = 100;
 
 // === VENUES ===
 export const VENUES: Venue[] = [
   { id: 'garage', name: 'Гараж друга', capacity: 20, minFame: 0, payPerHead: 8, description: 'Тесно, но душевно', type: 'bar' },
   { id: 'bar', name: 'Бар "Подвал"', capacity: 50, minFame: 5, payPerHead: 10, description: 'Пивной дым и рок', type: 'bar' },
-  { id: 'pub', name: 'Паб "Три Аккорда"', capacity: 100, minFame: 20, payPerHead: 14, description: 'Живая музыка каждый вечер', type: 'bar' },
-  { id: 'club-small', name: 'Клуб "Гром"', capacity: 250, minFame: 60, payPerHead: 18, description: 'Настоящая рок-площадка', type: 'club' },
-  { id: 'club-big', name: 'Клуб "Вольт"', capacity: 500, minFame: 120, payPerHead: 24, description: 'Два этажа рока', type: 'club' },
-  { id: 'theater', name: 'Концертный зал', capacity: 1500, minFame: 250, payPerHead: 35, description: 'Акустика мечты', type: 'theater' },
-  { id: 'arena', name: 'Арена "Рок-Купол"', capacity: 5000, minFame: 450, payPerHead: 50, description: 'Свет, звук, масштаб', type: 'arena' },
-  { id: 'stadium', name: 'Стадион "Олимп"', capacity: 30000, minFame: 750, payPerHead: 65, description: 'Вершина рока!', type: 'stadium' },
+  { id: 'pub', name: 'Паб "Три Аккорда"', capacity: 100, minFame: 20, payPerHead: 14, description: 'Живая музыка каждый вечер', type: 'bar', requiredEquipmentIds: ['pa-basic', 'mic-starter'] },
+  { id: 'club-small', name: 'Клуб "Гром"', capacity: 250, minFame: 60, payPerHead: 18, description: 'Настоящая рок-площадка', type: 'club', requiredEquipmentIds: ['pa-mid', 'mic-mid'], requiresSoundEngineer: true },
+  { id: 'club-big', name: 'Клуб "Вольт"', capacity: 500, minFame: 120, payPerHead: 24, description: 'Два этажа рока', type: 'club', requiredEquipmentIds: ['pa-mid', 'mic-mid'], requiresSoundEngineer: true },
+  { id: 'theater', name: 'Концертный зал', capacity: 1500, minFame: 250, payPerHead: 35, description: 'Акустика мечты', type: 'theater', requiredEquipmentIds: ['pa-pro', 'mic-pro'], requiresSoundEngineer: true },
+  { id: 'arena', name: 'Арена "Рок-Купол"', capacity: 5000, minFame: 450, payPerHead: 50, description: 'Свет, звук, масштаб', type: 'arena', requiredEquipmentIds: ['pa-pro', 'mic-pro', 'lights-pro'], requiresSoundEngineer: true },
+  { id: 'stadium', name: 'Стадион "Олимп"', capacity: 30000, minFame: 750, payPerHead: 65, description: 'Вершина рока!', type: 'stadium', requiredEquipmentIds: ['pa-pro', 'mic-pro', 'lights-elite'], requiresSoundEngineer: true },
 ];
 
 // === HIRE POOL ===
@@ -59,6 +72,12 @@ export const MUSICIAN_NAMES: Record<string, string[]> = {
   drums: ['Бонзо', 'Нил', 'Дэйв', 'Ларс', 'Кит', 'Чад'],
   vocals: ['Фредди', 'Роберт', 'Оззи', 'Аксель', 'Боно', 'Игги'],
   keyboard: ['Джон', 'Рик', 'Рэй', 'Кит', 'Тони', 'Ян'],
+};
+
+export const CREW_NAMES: Record<string, string[]> = {
+  manager: ['Макс', 'Дима', 'Олег', 'Саша', 'Костя', 'Владимир'],
+  sound_engineer: ['Артём', 'Миша', 'Женя', 'Паша', 'Сергей', 'Андрей'],
+  tech: ['Кирилл', 'Никита', 'Илья', 'Рома', 'Денис', 'Стас'],
 };
 
 export const GENRES: { value: MusicGenre; label: string; emoji: string }[] = [
@@ -99,5 +118,22 @@ export const SONG_QUALITY_FORMULA = {
 };
 
 export const WEEKLY_EXPENSES = {
-  baseCost: 60, // rent etc
+  baseCost: 60,
 };
+
+// Friend musicians: share of concert earnings (total for all friends)
+export const FRIEND_SHARE_PERCENT = 20;
+
+// Alternative income (when money is low)
+export const STREET_GIG_BASE = 15;
+export const STREET_GIG_FAME_FACTOR = 2; // +2$ per 10 fame
+export const RADIO_PAY_BASE = 80;
+export const RADIO_FAME_FACTOR = 3;
+export const RADIO_FAME_GAIN = 5;
+export const INTERVIEW_PAY_BASE = 50;
+export const INTERVIEW_FAME_GAIN = 8;
+
+// Manager/Sound bonuses
+export const MANAGER_PAY_MULTIPLIER = 1.15;
+export const MANAGER_FAME_MULTIPLIER = 1.1;
+export const SOUND_ENGINEER_MOOD_BONUS = 5;
